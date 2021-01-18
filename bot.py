@@ -167,4 +167,4 @@ async def config(ctx, *args):
     await ctx.send(embed=config_embed)
 
 
-bot.run("ODAwNDIxMzk2NTk3MDQ3MzI2.YAR4hA.UPmIZqZjNuedLG4RfZufNp_o_yc")
+bot.run("")

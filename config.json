@@ -1,7 +1,7 @@
 {
     "monitor_server_ip": "localhost",
     "ping_interval": 3,
-    "server_monitor_channel_id": 691430031758589976,
-    "mention_role_id": 714135921817026580,
-    "server_id": 691430031758589972
+    "server_monitor_channel_id": 5,
+    "mention_role_id": 5,
+    "server_id": 5
 }
