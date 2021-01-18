@@ -166,5 +166,6 @@ async def config(ctx, *args):
         config_embed.add_field(name=str(setting), value=str(value), inline=False)
     await ctx.send(embed=config_embed)
 
-
-bot.run("ODAwNDIxMzk2NTk3MDQ3MzI2.YAR4hA._ffEIA6SQ8fJ8sWCq1LGf3MZtso")
+with open("token.json") as token_file:
+    token = json.load(token_file)
+    bot.run(token[0])
