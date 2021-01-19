@@ -5,7 +5,16 @@ import json
 import asyncio
 import socket
 import datetime
+import logging
+import logging.handlers
 """https://discord.com/api/oauth2/authorize?client_id=800421396597047326&permissions=116800&scope=bot"""
+# TODO: implement logging instead of printing.
+
+logger = logging.getLogger("")
+logger.setLevel(logging.INFO)
+
+file_handler = logging.handlers.TimedRotatingFileHandler("logs/bot_log.log", when="S", interval=5)
+logger.addHandler(file_handler)
 
 bot = commands.Bot(command_prefix="=", activity=discord.Game(name='Prefix is =, built by Boredly!'))
 
@@ -20,7 +29,7 @@ def get_server_status(server_ip_port):
         return mc_server.status()
 
     except (ConnectionRefusedError, IOError):
-        return False
+        return None
 
 
 def get_server_query(server_ip_port):
@@ -35,23 +44,24 @@ def get_server_query(server_ip_port):
 
 @bot.event
 async def on_ready():
-    print(f"Running as {bot.user.name}#{bot.user.discriminator}")
+    logger.info(f"Running as {bot.user.name}#{bot.user.discriminator}\n")
     startup = True
     await monitor_server(startup)
 
 
 async def monitor_server(startup):
-    print(f"Monitoring server: {bot_config['monitor_server_ip']}, pinging every {bot_config['ping_interval']} seconds.")
+    logger.info(f"\nMonitoring server: {bot_config['monitor_server_ip']}, pinging every {bot_config['ping_interval']} "
+                 f"seconds.\n")
 
     minecraft_server_online = False
     while True:
         if bot_config["monitor_server_ip"] is None:
-            print("No server to monitor, quitting monitor task")
+            logger.warning("No server to monitor, quitting monitor task\n")
             return
         else:
             try:
                 server = get_server_status(bot_config["monitor_server_ip"])
-                if server is False:
+                if server is None:
                     if minecraft_server_online is True:
                         minecraft_server_online = False
                         announcement_channel = bot.get_channel(bot_config["server_monitor_channel_id"])
@@ -62,16 +72,21 @@ async def monitor_server(startup):
                         server_online_embed.add_field(name="Time", value=str(datetime.datetime.now()), inline=False)
 
                         if not startup:
-                            await announcement_channel.send(f"{bot.get_guild(bot_config['server_id']).get_role(bot_config['mention_role_id']).mention}", embed=server_online_embed)
+                            logger.info(f"Sending announcement for {bot_config['monitor_server_ip']}")
+                            await announcement_channel.send(embed=server_online_embed)
                         else:
-                            print("Skipping announcement")
+                            logger.info(f"Skipping announcement for {bot_config['monitor_server_ip']}")
                             startup = False
 
                     minecraft_server_online = False
-                    print("offline")
+                    logger.info(f" | {bot_config['monitor_server_ip']} | OFFLINE | "
+                                 f"{bot_config['ping_interval']} second intervals")
+                    startup = False
+
                 else:
                     server_ping = server.latency
-                    print("online")
+                    logger.info(f" | {bot_config['monitor_server_ip']} | ONLINE | "
+                                 f"{bot_config['ping_interval']} second intervals")
                     if minecraft_server_online is False:
                         minecraft_server_online = True
                         announcement_channel = bot.get_channel(bot_config["server_monitor_channel_id"])
@@ -82,13 +97,14 @@ async def monitor_server(startup):
                         server_online_embed.add_field(name="Time", value=str(datetime.datetime.now()), inline=False)
 
                         if not startup:
-                            await announcement_channel.send(f"{bot.get_guild(bot_config['server_id']).get_role(bot_config['mention_role_id']).mention}", embed=server_online_embed)
+                            logger.info(f"Sending announcement for {bot_config['monitor_server_ip']}")
+                            await announcement_channel.send(embed=server_online_embed)
                         else:
-                            print("Skipping announcement")
+                            logger.info(f"Skipping announcement for {bot_config['monitor_server_ip']}")
                             startup = False
 
             except socket.gaierror:
-                print(f"Invalid IP to monitor: {bot_config['monitor_server_ip']}, quitting monitor task")
+                logger.warning(f"Invalid IP to monitor: {bot_config['monitor_server_ip']}, quitting monitor task")
                 return
 
         await asyncio.sleep(bot_config["ping_interval"])
@@ -122,7 +138,12 @@ async def server_info(ctx, ip):
 
 @bot.command()
 async def ping(ctx):
-    await ctx.send("Pong!")
+    await ctx.send(f"Pong! {ctx.message.author.mention}")
+
+
+@bot.command()
+async def test_mention(ctx, id):
+    await ctx.send(f"{ctx.guild.get_role(int(id)).mention}")
 
 
 @bot.command()
@@ -153,7 +174,7 @@ async def config(ctx, *args):
                 bot_config["server_monitor_channel_id"] = int(bot_config["server_monitor_channel_id"])
                 bot_config["mention_role_id"] = int(bot_config["mention_role_id"])
                 bot_config["server_id"] = int(bot_config["server_id"])
-                print(bot_config)
+                logger.warning(f"Bot config changed | {bot_config}")
 
                 with open("config.json", "w") as config_file:
                     json.dump(bot_config, config_file, indent=4)
