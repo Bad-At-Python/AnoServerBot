@@ -5,7 +5,7 @@ import json
 import asyncio
 import socket
 import datetime
-import logging
+import sys
 import logging.handlers
 """https://discord.com/api/oauth2/authorize?client_id=800421396597047326&permissions=116800&scope=bot"""
 # TODO: implement logging instead of printing.
@@ -13,10 +13,17 @@ import logging.handlers
 logger = logging.getLogger("")
 logger.setLevel(logging.INFO)
 
-file_handler = logging.handlers.TimedRotatingFileHandler("logs/bot_log.log", when="S", interval=5)
+file_handler = logging.handlers.TimedRotatingFileHandler("logs/bot_log.log", when="H", interval=10)
+file_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)s]:  %(message)s",
+                                            datefmt="%m-%d-%Y %I:%M:%S %p"))
+
+stdout_handler = logging.StreamHandler(sys.stdout)
+stdout_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)s]:  %(message)s",
+                                            datefmt="%m-%d-%Y %I:%M:%S %p"))
+logger.addHandler(stdout_handler)
 logger.addHandler(file_handler)
 
-bot = commands.Bot(command_prefix="=", activity=discord.Game(name='Prefix is =, built by Boredly!'))
+bot = commands.Bot(command_prefix="=2", activity=discord.Game(name='Prefix is =, built by Boredly!'))
 
 with open("config.json", "r") as config_file:
     bot_config = json.load(config_file)
@@ -50,8 +57,8 @@ async def on_ready():
 
 
 async def monitor_server(startup):
-    logger.info(f"\nMonitoring server: {bot_config['monitor_server_ip']}, pinging every {bot_config['ping_interval']} "
-                 f"seconds.\n")
+    logger.info(f"Monitoring server: {bot_config['monitor_server_ip']}, pinging every {bot_config['ping_interval']} "
+                f"seconds.\n")
 
     minecraft_server_online = False
     while True:
@@ -79,13 +86,13 @@ async def monitor_server(startup):
                             startup = False
 
                     minecraft_server_online = False
-                    logger.info(f" | {bot_config['monitor_server_ip']} | OFFLINE | "
+                    logger.info(f" {bot_config['monitor_server_ip']} | OFFLINE | "
                                  f"{bot_config['ping_interval']} second intervals")
                     startup = False
 
                 else:
                     server_ping = server.latency
-                    logger.info(f" | {bot_config['monitor_server_ip']} | ONLINE | "
+                    logger.info(f" {bot_config['monitor_server_ip']} | ONLINE | "
                                  f"{bot_config['ping_interval']} second intervals")
                     if minecraft_server_online is False:
                         minecraft_server_online = True
