@@ -105,10 +105,16 @@ async def server_info(ctx, ip):
         player_online_string = ""
         for player in query.players.names:
             player_online_string += f"{player}\n"
+        if player_online_string == "":
+            player_online_string = "\u200b"
+
         info_embed.add_field(name="Online Players:", value=player_online_string)
+
         plugin_string = ""
         for plugin in query.software.plugins:
             plugin_string += f"{plugin}\n"
+        if plugin_string == "":
+            plugin_string = "\u200b"
         info_embed.add_field(name="Plugins:", value=plugin_string, inline=False)
 
     await ctx.send(embed=info_embed)
