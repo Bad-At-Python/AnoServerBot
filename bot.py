@@ -7,8 +7,25 @@ import socket
 import datetime
 import sys
 import logging.handlers
+import traceback
 """https://discord.com/api/oauth2/authorize?client_id=800421396597047326&permissions=116800&scope=bot"""
 # TODO: Allow re-run of monitor_server() via command
+
+
+def log_exception(exc_type, value, tb):
+    logger.error("", exc_info=(exc_type, value, tb))
+    sys.stderr.write("Traceback (most recent call last):")
+    traceback.print_tb(tb)
+    sys.stderr.write(f"{str(exc_type)}: {value}")
+
+
+def dpy_log_exception(event):
+    exc_info = sys.exc_info()
+    logger.error("", exc_info=exc_info)
+    sys.stderr.write("Traceback (most recent call last):")
+    traceback.print_tb(exc_info[2])
+    sys.stderr.write(f"{str(exc_info[0])}: {exc_info[1]}")
+
 
 logger = logging.getLogger("")
 logger.setLevel(logging.INFO)
@@ -19,11 +36,15 @@ file_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)s]:  %(m
 
 stdout_handler = logging.StreamHandler(sys.stdout)
 stdout_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)s]:  %(message)s",
-                                            datefmt="%m-%d-%Y %I:%M:%S %p"))
+                                              datefmt="%m-%d-%Y %I:%M:%S %p"))
 logger.addHandler(stdout_handler)
 logger.addHandler(file_handler)
 
+sys.excepthook = log_exception
+
 bot = commands.Bot(command_prefix="=", activity=discord.Game(name='Prefix is =, built by Boredly!'))
+
+bot.on_error = dpy_log_exception
 
 with open("config.json", "r") as config_file:
     bot_config = json.load(config_file)
@@ -51,6 +72,7 @@ def get_server_query(server_ip_port):
 
 @bot.event
 async def on_ready():
+    print(1/0)
     logger.info(f"Running as {bot.user.name}#{bot.user.discriminator}\n")
     startup = True
     await monitor_server(startup)
@@ -199,6 +221,12 @@ async def config(ctx, *args):
     for setting, value in bot_config.items():
         config_embed.add_field(name=str(setting), value=str(value), inline=False)
     await ctx.send(embed=config_embed)
+
+
+@bot.command()
+async def get_logs(ctx):
+    log_file = discord.File("logs/bot_log.log", "bot_log.log")
+    await ctx.send(file=log_file)
 
 with open("token.json") as token_file:
     token = json.load(token_file)
