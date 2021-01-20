@@ -19,11 +19,10 @@ def log_exception(exc_type, value, tb):
     sys.stderr.write(f"{str(exc_type)}: {value}")
 
 
-def dpy_log_exception(event):
+async def dpy_log_exception(event):
     exc_info = sys.exc_info()
     logger.error("", exc_info=exc_info)
-    sys.stderr.write("Traceback (most recent call last):")
-    traceback.print_tb(exc_info[2])
+    traceback.print_exc()
     sys.stderr.write(f"{str(exc_info[0])}: {exc_info[1]}")
 
 
@@ -33,6 +32,7 @@ logger.setLevel(logging.INFO)
 file_handler = logging.handlers.TimedRotatingFileHandler("logs/bot_log.log", when="H", interval=10)
 file_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)s]:  %(message)s",
                                             datefmt="%m-%d-%Y %I:%M:%S %p"))
+file_handler.suffix = "%m-%d-%Y.log"
 
 stdout_handler = logging.StreamHandler(sys.stdout)
 stdout_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)s]:  %(message)s",
@@ -72,10 +72,10 @@ def get_server_query(server_ip_port):
 
 @bot.event
 async def on_ready():
-    print(1/0)
     logger.info(f"Running as {bot.user.name}#{bot.user.discriminator}\n")
     startup = True
     await monitor_server(startup)
+    print(1/0)
 
 
 async def monitor_server(startup):
