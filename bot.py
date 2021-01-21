@@ -98,7 +98,9 @@ async def monitor_server(startup):
                         server_online_embed = discord.Embed(title="Server Offline",
                                                             description=f"{bot_config['monitor_server_ip']} is now offline",
                                                             color=discord.Color.red())
-                        server_online_embed.add_field(name="Time", value=str(datetime.datetime.now()), inline=False)
+                        server_online_embed.add_field(name="Time", value=datetime.datetime.now().strftime("%m-%d-%Y | "
+                                                                                                          "%I:%M:%S %p")
+                                                      , inline=False)
 
                         if not startup:
                             logger.info(f"Sending announcement for {bot_config['monitor_server_ip']}")
@@ -123,7 +125,9 @@ async def monitor_server(startup):
                         server_online_embed = discord.Embed(title="Server Online!",
                                                             description=f"{bot_config['monitor_server_ip']} is online!",
                                                             color=discord.Color.green())
-                        server_online_embed.add_field(name="Time", value=str(datetime.datetime.now()), inline=False)
+                        server_online_embed.add_field(name="Time", value=datetime.datetime.now().strftime("%m-%d-%Y | "
+                                                                                                          "%I:%M:%S %p")
+                                                      , inline=False)
 
                         if not startup:
                             logger.info(f"Sending announcement for {bot_config['monitor_server_ip']}")
