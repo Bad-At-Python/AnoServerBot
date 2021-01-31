@@ -56,7 +56,8 @@ def get_server_status(server_ip_port):
     try:
         return mc_server.status()
 
-    except (ConnectionRefusedError, IOError):
+    except (ConnectionRefusedError, IOError) as e:
+        logger.info(e)
         return None
 
 
@@ -66,16 +67,20 @@ def get_server_query(server_ip_port):
     try:
         return mc_server.query()
 
-    except (ConnectionResetError, socket.timeout):
+    except (ConnectionResetError, socket.timeout) as e:
+        logger.info(e)
         return None
 
 
 @bot.event
 async def on_ready():
+    global startup
     logger.info(f"Running as {bot.user.name}#{bot.user.discriminator}\n")
     startup = True
     await monitor_server(startup)
-    print(1/0)
+
+
+server_monitor_enabled = True
 
 
 async def monitor_server(startup):
@@ -83,13 +88,14 @@ async def monitor_server(startup):
                 f"seconds.\n")
 
     minecraft_server_online = False
-    while True:
+    while server_monitor_enabled:
         if bot_config["monitor_server_ip"] is None:
             logger.warning("No server to monitor, quitting monitor task\n")
             return
         else:
             try:
                 server = get_server_status(bot_config["monitor_server_ip"])
+                # Offline
                 if server is None:
                     if minecraft_server_online is True:
                         minecraft_server_online = False
@@ -103,7 +109,7 @@ async def monitor_server(startup):
                                                       , inline=False)
 
                         if not startup:
-                            logger.info(f"Sending announcement for {bot_config['monitor_server_ip']}")
+                            logger.info(f"Sending announcement for {bot_config['monitor_server_ip']} | OFFLINE")
                             await announcement_channel.send(embed=server_online_embed)
                         else:
                             logger.info(f"Skipping announcement for {bot_config['monitor_server_ip']}")
@@ -114,9 +120,10 @@ async def monitor_server(startup):
                                  f"{bot_config['ping_interval']} second intervals")
                     startup = False
 
+                # Online
                 else:
                     server_ping = server.latency
-                    logger.info(f" {bot_config['monitor_server_ip']} | ONLINE | "
+                    logger.info(f" {bot_config['monitor_server_ip']} | ONLINE | {server_ping}ms |"
                                 f"{bot_config['ping_interval']} second intervals")
                     if minecraft_server_online is False:
                         minecraft_server_online = True
@@ -130,7 +137,7 @@ async def monitor_server(startup):
                                                       , inline=False)
 
                         if not startup:
-                            logger.info(f"Sending announcement for {bot_config['monitor_server_ip']}")
+                            logger.info(f"Sending announcement for {bot_config['monitor_server_ip']} | ONLINE")
                             await announcement_channel.send(embed=server_online_embed)
                         else:
                             logger.info(f"Skipping announcement for {bot_config['monitor_server_ip']}")
@@ -141,6 +148,7 @@ async def monitor_server(startup):
                 return
 
         await asyncio.sleep(bot_config["ping_interval"])
+    logger.warning("Monitor has been disabled, ending monitor task")
 
 
 @bot.command()
@@ -231,6 +239,36 @@ async def config(ctx, *args):
 async def get_logs(ctx):
     log_file = discord.File("logs/bot_log.log", "bot_log.log")
     await ctx.send(file=log_file)
+
+
+@bot.group(invoke_without_command=True)
+async def server_monitor(ctx):
+    await ctx.send(f"Please append one of the following: {*[command.name for command in server_monitor.commands],} to "
+                   f"your command to select an option".replace("'", '"').replace("(", "").replace(")", ""))
+
+
+@server_monitor.command()
+async def end(ctx):
+    global server_monitor_enabled
+    if server_monitor_enabled is True:
+        server_monitor_enabled = False
+        await ctx.send(f"Ending task, it will exit after the next iteration ends "
+                       f"(At most {bot_config['ping_interval']} seconds).")
+    else:
+        await ctx.send("The task has already been ended or never started.")
+
+
+@server_monitor.command()
+async def start(ctx):
+    global startup
+    global server_monitor_enabled
+    if server_monitor_enabled is False:
+        server_monitor_enabled = True
+        await server_monitor(startup)
+        await ctx.send("Starting task.")
+    else:
+        await ctx.send("The task is already running.")
+
 
 with open("token.json") as token_file:
     token = json.load(token_file)
