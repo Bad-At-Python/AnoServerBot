@@ -9,22 +9,10 @@ import sys
 import logging.handlers
 import traceback
 """https://discord.com/api/oauth2/authorize?client_id=800421396597047326&permissions=116800&scope=bot"""
-# TODO: Allow re-run of monitor_server() via command
 
 
-# TODO: JUST OVERWRITE sys.stdout and sys.stderr genius
 def log_exception(exc_type, value, tb):
-    logger.error("", exc_info=(exc_type, value, tb))
-    sys.stderr.write("Traceback (most recent call last):")
-    traceback.print_tb(tb)
-    sys.stderr.write(f"{str(exc_type)}: {value}")
-
-
-async def dpy_log_exception(event):
-    exc_info = sys.exc_info()
-    logger.error("", exc_info=exc_info)
-    traceback.print_exc()
-    sys.stderr.write(f"{str(exc_info[0])}: {exc_info[1]}")
+    logging.error("".join(traceback.format_exception(exc_type, value, tb)))
 
 
 logger = logging.getLogger("")
@@ -38,6 +26,7 @@ file_handler.suffix = "%m-%d-%Y.log"
 stdout_handler = logging.StreamHandler(sys.stdout)
 stdout_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)s]:  %(message)s",
                                               datefmt="%m-%d-%Y %I:%M:%S %p"))
+
 logger.addHandler(stdout_handler)
 logger.addHandler(file_handler)
 
@@ -45,7 +34,7 @@ sys.excepthook = log_exception
 
 bot = commands.Bot(command_prefix="!", activity=discord.Game(name='Prefix is =, built by Boredly!'))
 
-bot.on_error = dpy_log_exception
+# bot.on_error = dpy_log_exception
 
 with open("config.json", "r") as config_file:
     bot_config = json.load(config_file)
