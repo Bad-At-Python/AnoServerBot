@@ -1,7 +1,0 @@
-{
-    "monitor_server_ip": "localhost",
-    "ping_interval": 3,
-    "server_monitor_channel_id": 5,
-    "mention_role_id": 5,
-    "server_id": 5
-}
