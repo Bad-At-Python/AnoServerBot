@@ -12,6 +12,7 @@ import traceback
 # TODO: Allow re-run of monitor_server() via command
 
 
+# TODO: JUST OVERWRITE sys.stdout and sys.stderr genius
 def log_exception(exc_type, value, tb):
     logger.error("", exc_info=(exc_type, value, tb))
     sys.stderr.write("Traceback (most recent call last):")
@@ -42,7 +43,7 @@ logger.addHandler(file_handler)
 
 sys.excepthook = log_exception
 
-bot = commands.Bot(command_prefix="=", activity=discord.Game(name='Prefix is =, built by Boredly!'))
+bot = commands.Bot(command_prefix="!", activity=discord.Game(name='Prefix is =, built by Boredly!'))
 
 bot.on_error = dpy_log_exception
 
@@ -52,10 +53,8 @@ with open("config.json", "r") as config_file:
 
 def get_server_status(server_ip_port):
     mc_server = mcstatus.MinecraftServer.lookup(server_ip_port)
-
     try:
         return mc_server.status()
-
     except (ConnectionRefusedError, IOError) as e:
         logger.info(e)
         return None
@@ -63,10 +62,8 @@ def get_server_status(server_ip_port):
 
 def get_server_query(server_ip_port):
     mc_server = mcstatus.MinecraftServer.lookup(server_ip_port)
-
     try:
         return mc_server.query()
-
     except (ConnectionResetError, socket.timeout) as e:
         logger.info(e)
         return None
@@ -74,10 +71,9 @@ def get_server_query(server_ip_port):
 
 @bot.event
 async def on_ready():
-    global startup
+    global monitor_task
     logger.info(f"Running as {bot.user.name}#{bot.user.discriminator}\n")
-    startup = True
-    await monitor_server(startup)
+    monitor_task = bot.loop.create_task(monitor_server(True))
 
 
 server_monitor_enabled = True
@@ -94,31 +90,25 @@ async def monitor_server(startup):
             return
         else:
             try:
+                # Grab the server online or offline
                 server = get_server_status(bot_config["monitor_server_ip"])
                 # Offline
                 if server is None:
                     if minecraft_server_online is True:
-                        minecraft_server_online = False
                         announcement_channel = bot.get_channel(bot_config["server_monitor_channel_id"])
 
-                        server_online_embed = discord.Embed(title="Server Offline",
-                                                            description=f"{bot_config['monitor_server_ip']} is now offline",
-                                                            color=discord.Color.red())
-                        server_online_embed.add_field(name="Time", value=datetime.datetime.now().strftime("%m-%d-%Y | "
-                                                                                                          "%I:%M:%S %p")
-                                                      , inline=False)
+                        server_online_embed = discord.Embed(title="Server Offline", description=f"{bot_config['monitor_server_ip']} is now offline", color=discord.Color.red())
+                        server_online_embed.add_field(name="Time", value=datetime.datetime.now().strftime("%m-%d-%Y | %I:%M:%S %p") , inline=False)
 
                         if not startup:
                             logger.info(f"Sending announcement for {bot_config['monitor_server_ip']} | OFFLINE")
                             await announcement_channel.send(embed=server_online_embed)
                         else:
                             logger.info(f"Skipping announcement for {bot_config['monitor_server_ip']}")
-                            startup = False
 
                     minecraft_server_online = False
                     logger.info(f" {bot_config['monitor_server_ip']} | OFFLINE | "
                                  f"{bot_config['ping_interval']} second intervals")
-                    startup = False
 
                 # Online
                 else:
@@ -129,19 +119,17 @@ async def monitor_server(startup):
                         minecraft_server_online = True
                         announcement_channel = bot.get_channel(bot_config["server_monitor_channel_id"])
 
-                        server_online_embed = discord.Embed(title="Server Online!",
-                                                            description=f"{bot_config['monitor_server_ip']} is online!",
-                                                            color=discord.Color.green())
-                        server_online_embed.add_field(name="Time", value=datetime.datetime.now().strftime("%m-%d-%Y | "
-                                                                                                          "%I:%M:%S %p")
-                                                      , inline=False)
+                        server_online_embed = discord.Embed(title="Server Online!", description=f"{bot_config['monitor_server_ip']} is online!", color=discord.Color.green())
+                        server_online_embed.add_field(name="Time", value=datetime.datetime.now().strftime("%m-%d-%Y | %I:%M:%S %p"), inline=False)
 
                         if not startup:
                             logger.info(f"Sending announcement for {bot_config['monitor_server_ip']} | ONLINE")
                             await announcement_channel.send(embed=server_online_embed)
                         else:
                             logger.info(f"Skipping announcement for {bot_config['monitor_server_ip']}")
-                            startup = False
+
+                # Used to ensure seamless transition on bot restart, so bot won't announce server once it is restarted
+                startup = False
 
             except socket.gaierror:
                 logger.warning(f"Invalid IP to monitor: {bot_config['monitor_server_ip']}, quitting monitor task")
@@ -183,12 +171,7 @@ async def ping(ctx):
 
 
 @bot.command()
-async def test_mention(ctx, id):
-    await ctx.send(f"{ctx.guild.get_role(int(id)).mention}")
-
-
-@bot.command()
-@commands.has_permissions(manage_guild=True)
+@commands.is_owner()
 async def config(ctx, *args):
     global bot_config
     write_args = True
@@ -252,19 +235,18 @@ async def end(ctx):
     global server_monitor_enabled
     if server_monitor_enabled is True:
         server_monitor_enabled = False
-        await ctx.send(f"Ending task, it will exit after the next iteration ends "
-                       f"(At most {bot_config['ping_interval']} seconds).")
+        monitor_task.cancel()
+        await ctx.send(f"Ending task!")
     else:
         await ctx.send("The task has already been ended or never started.")
 
 
 @server_monitor.command()
 async def start(ctx):
-    global startup
-    global server_monitor_enabled
+    global server_monitor_enabled, monitor_task
     if server_monitor_enabled is False:
         server_monitor_enabled = True
-        await server_monitor(startup)
+        monitor_task = bot.loop.create_task(monitor_server(False))
         await ctx.send("Starting task.")
     else:
         await ctx.send("The task is already running.")
